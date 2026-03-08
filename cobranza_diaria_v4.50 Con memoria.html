@@ -1,0 +1,2243 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cobranza Diaria</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --surface2: #222222;
+    --border: #2e2e2e;
+    --accent: #00e5a0;
+    --warn: #ffd166;
+    --text: #e8e8e8;
+    --text2: #888;
+    --mora: #ff4444;
+    --recordatorio: #ffd166;
+    --enviado: #00e5a0;
+    --proceso: #8b5cf6;
+    --suspendido: #6b7280;
+    --otros: #38bdf8;
+    --aldia: #34d399;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .fecha-hoy {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .btn-borrar-memoria {
+    padding: 5px 12px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,68,68,0.3);
+    background: rgba(255,68,68,0.08);
+    color: var(--mora);
+    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-borrar-memoria:hover {
+    background: var(--mora);
+    color: #fff;
+    border-color: var(--mora);
+  }
+  .semana-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text2);
+    text-align: center;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── STATS BAR ── */
+  .stats-bar {
+    display: flex;
+    gap: 1px;
+    background: var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .stat {
+    flex: 1;
+    background: var(--surface);
+    padding: 12px 20px;
+    text-align: center;
+  }
+  .stat-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 28px;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: 10px;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
+  }
+  .stat.mora        .stat-num { color: var(--mora); }
+  .stat.recordatorio .stat-num { color: var(--recordatorio); }
+  .stat.enviado     .stat-num { color: var(--enviado); }
+  .stat.pendiente   .stat-num { color: var(--text); }
+  .stat.proceso     .stat-num { color: var(--proceso); }
+  .stat.suspendido  .stat-num { color: var(--suspendido); }
+  .stat.otros       .stat-num { color: var(--otros); }
+  .stat.aldia       .stat-num { color: var(--aldia); }
+
+  /* ── MAIN ── */
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 24px 16px;
+  }
+
+  /* ── UPLOAD ZONE ── */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 48px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 24px;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(0,229,160,0.04);
+  }
+  .upload-icon  { font-size: 40px; margin-bottom: 12px; }
+  .upload-title { font-size: 16px; font-weight: 500; margin-bottom: 6px; }
+  .upload-sub   { font-size: 12px; color: var(--text2); }
+  #fileInput    { display: none; }
+
+  /* ── FILTROS ── */
+  .filtros {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .filtro-btn {
+    padding: 6px 14px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text2);
+    font-size: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .filtro-btn:hover { border-color: var(--accent); color: var(--text); }
+  .filtro-btn.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+  .filtro-btn.mora.active { background: var(--mora); border-color: var(--mora); color: #fff; }
+  .filtro-btn.rec.active  { background: var(--recordatorio); border-color: var(--recordatorio); color: #000; }
+  .filtro-btn.proceso.active { background: var(--proceso); border-color: var(--proceso); color: #fff; }
+  .filtro-btn.susp.active    { background: var(--suspendido); border-color: var(--suspendido); color: #fff; }
+  .filtro-btn.otros.active   { background: var(--otros); border-color: var(--otros); color: #000; }
+  .filtro-btn.aldia.active   { background: var(--aldia); border-color: var(--aldia); color: #000; }
+
+  /* ── SUB-FILTROS MORA ── */
+  .subfiltros-mora {
+    display: none;
+    gap: 6px;
+    margin-bottom: 16px;
+    margin-top: -8px;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .subfiltros-mora.visible { display: flex; }
+  .subfiltros-mora .sub-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-right: 4px;
+  }
+  .subfiltro-mora-btn {
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,68,68,0.3);
+    background: rgba(255,68,68,0.06);
+    color: var(--text2);
+    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .subfiltro-mora-btn:hover { border-color: var(--mora); background: rgba(255,68,68,0.12); color: var(--text); }
+  .subfiltro-mora-btn.active { background: var(--mora); color: #fff; border-color: var(--mora); font-weight: 600; }
+  .subfiltro-mora-btn .sub-count {
+    font-size: 10px;
+    opacity: 1;
+    margin-left: 3px;
+    color: var(--mora);
+  }
+  .subfiltro-mora-btn.active .sub-count {
+    color: rgba(255,255,255,0.7);
+  }
+
+  /* ── SUB-FILTROS RECORDATORIO ── */
+  .subfiltros-rec {
+    display: none;
+    gap: 6px;
+    margin-bottom: 16px;
+    margin-top: -8px;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .subfiltros-rec.visible { display: flex; }
+  .subfiltros-rec .sub-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-right: 4px;
+  }
+  .subfiltro-btn {
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,209,102,0.3);
+    background: rgba(255,209,102,0.06);
+    color: var(--text2);
+    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .subfiltro-btn:hover { border-color: var(--recordatorio); background: rgba(255,209,102,0.12); color: var(--text); }
+  .subfiltro-btn.active { background: var(--recordatorio); color: #000; border-color: var(--recordatorio); font-weight: 600; }
+  .subfiltro-btn .sub-count {
+    font-size: 10px;
+    opacity: 1;
+    margin-left: 3px;
+    color: var(--recordatorio);
+  }
+  .subfiltro-btn.active .sub-count {
+    color: rgba(0,0,0,0.5);
+  }
+  .search-box {
+    margin-left: auto;
+    padding: 6px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 12px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    width: 200px;
+    outline: none;
+  }
+  .search-box:focus { border-color: var(--accent); }
+  .search-box::placeholder { color: var(--text2); }
+
+  /* ── LISTA ── */
+  .lista { display: flex; flex-direction: column; gap: 12px; }
+
+  /* ── GRUPO CLIENTE ── */
+  .grupo-cliente {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .grupo-cliente:hover { border-color: #444; }
+
+  /* Cabecera del grupo */
+  .grupo-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+  }
+  .grupo-header:hover { background: #282828; }
+  .grupo-avatar {
+    min-width: 36px;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #1e3a2e, #143d2b);
+    border: 1px solid #2a5a40;
+    display: flex; align-items: center; justify-content: center;
+    gap: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-size: 11px;
+    color: var(--accent);
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .num-sep { color: #2a5a40; font-size: 10px; }
+  .grupo-nombre {
+    font-size: 15px;
+    font-weight: 600;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .grupo-badges {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .grupo-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-family: 'IBM Plex Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .grupo-badge.mora         { background: rgba(255,68,68,0.15);  color: var(--mora); border: 1px solid rgba(255,68,68,0.3); }
+  .grupo-badge.recordatorio { background: rgba(255,209,102,0.12); color: var(--recordatorio); border: 1px solid rgba(255,209,102,0.3); }
+  .grupo-badge.proceso      { background: rgba(139,92,246,0.12); color: var(--proceso); border: 1px solid rgba(139,92,246,0.3); }
+  .grupo-badge.suspendido   { background: rgba(107,114,128,0.12); color: var(--suspendido); border: 1px solid rgba(107,114,128,0.3); }
+  .grupo-badge.otros        { background: rgba(56,189,248,0.12); color: var(--otros); border: 1px solid rgba(56,189,248,0.3); }
+  .grupo-badge.aldia        { background: rgba(52,211,153,0.12); color: var(--aldia); border: 1px solid rgba(52,211,153,0.3); }
+  .grupo-toggle {
+    font-size: 12px;
+    color: var(--text2);
+    transition: transform 0.2s;
+    margin-left: 4px;
+  }
+  .grupo-cliente.abierto .grupo-toggle { transform: rotate(180deg); }
+
+  /* Acciones grupales */
+  .grupo-acciones {
+    display: flex;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .btn-grupo {
+    padding: 6px 14px;
+    border-radius: 5px;
+    border: 1px solid;
+    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-weight: 600;
+  }
+  .btn-grupo.enviado { background: rgba(0,229,160,0.1); border-color: var(--enviado); color: var(--enviado); }
+  .btn-grupo.enviado:hover { background: var(--enviado); color: #000; }
+  .btn-grupo.omitir  { background: rgba(255,68,68,0.1); border-color: var(--mora); color: var(--mora); }
+  .btn-grupo.omitir:hover  { background: var(--mora); color: #fff; }
+  .btn-grupo.deshacer { background: rgba(255,255,255,0.04); border-color: var(--border); color: var(--text2); }
+  .btn-grupo.deshacer:hover { border-color: var(--warn); color: var(--warn); }
+  .grupo-cliente.grupo-done .grupo-header { opacity: 0.45; }
+  .grupo-cliente.grupo-done .grupo-acciones { opacity: 0.6; }
+
+  /* Grupo completado — todo gris */
+  .grupo-cliente.grupo-completado {
+    opacity: 0.4;
+    filter: grayscale(100%);
+    transition: opacity 0.2s, filter 0.2s;
+  }
+  .grupo-cliente.grupo-completado:hover {
+    opacity: 0.6;
+    filter: grayscale(60%);
+  }
+
+  /* Separador completados */
+  .separador-completados {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 20px 0 12px;
+  }
+  .separador-linea {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .separador-texto {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+
+  /* Prestamos dentro del grupo */
+  .grupo-prestamos {
+    display: none;
+  }
+  .grupo-cliente.abierto .grupo-prestamos {
+    display: block;
+  }
+
+  /* ── TARJETA PRÉSTAMO ── */
+  .card {
+    padding: 14px 16px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 12px;
+    align-items: start;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    transition: background 0.15s;
+  }
+  .card:last-child { border-bottom: none; }
+  .card:hover { background: rgba(255,255,255,0.02); }
+  .card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+  }
+  .card.mora::before         { background: var(--mora); }
+  .card.recordatorio::before { background: var(--recordatorio); }
+  .card.proceso::before      { background: var(--proceso); }
+  .card.suspendido::before   { background: var(--suspendido); }
+  .card.otros::before        { background: var(--otros); }
+  .card.aldia::before        { background: var(--aldia); }
+  .card.done                 { opacity: 0.45; }
+  .card.done::before         { background: var(--enviado); }
+
+  /* Badge izquierdo */
+  .card-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 56px;
+    padding-left: 6px;
+  }
+  .badge-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text2);
+  }
+  .badge-tipo {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+  .mora         .badge-tipo { background: rgba(255,68,68,0.15); color: var(--mora); }
+  .recordatorio .badge-tipo { background: rgba(255,209,102,0.15); color: var(--recordatorio); }
+  .proceso      .badge-tipo { background: rgba(139,92,246,0.15); color: var(--proceso); }
+  .suspendido   .badge-tipo { background: rgba(107,114,128,0.15); color: var(--suspendido); }
+  .otros        .badge-tipo { background: rgba(56,189,248,0.15); color: var(--otros); }
+  .aldia        .badge-tipo { background: rgba(52,211,153,0.15); color: var(--aldia); }
+  .done         .badge-tipo { background: rgba(0,229,160,0.15); color: var(--enviado); }
+
+  /* Fecha envío */
+  .fecha-envio {
+    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    padding: 2px 6px;
+    border-radius: 3px;
+    display: inline-block;
+    white-space: nowrap;
+  }
+  .fecha-hoy-badge    { background: rgba(0,229,160,0.15); color: var(--enviado); }
+  .fecha-futuro-badge { background: rgba(255,209,102,0.12); color: var(--recordatorio); }
+
+  /* Cuerpo */
+  .card-body { min-width: 0; }
+  .card-meta {
+    font-size: 11px;
+    color: var(--text2);
+    font-family: 'IBM Plex Mono', monospace;
+    margin-bottom: 8px;
+  }
+  .card-mensaje {
+    font-size: 13px;
+    color: #c0c0c0;
+    line-height: 1.55;
+    background: var(--bg);
+    border-radius: 6px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    user-select: all;
+    transition: border-color 0.15s;
+    white-space: pre-line;
+  }
+  .card-mensaje:hover { border-color: var(--accent); }
+  .copy-hint {
+    font-size: 10px;
+    color: var(--text2);
+    margin-top: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* Acciones */
+  .card-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 90px;
+  }
+  .btn-action {
+    padding: 8px 12px;
+    border-radius: 5px;
+    border: 1px solid;
+    font-size: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+    font-weight: 600;
+  }
+  .btn-enviado    { background: rgba(0,229,160,0.1);  border-color: var(--enviado); color: var(--enviado); }
+  .btn-enviado:hover { background: var(--enviado); color: #000; }
+  .btn-no-enviado { background: rgba(255,68,68,0.1); border-color: var(--mora); color: var(--mora); }
+  .btn-no-enviado:hover { background: var(--mora); color: #fff; }
+  .btn-copy       { background: rgba(255,255,255,0.04); border-color: var(--border); color: var(--text2); }
+  .btn-copy:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-deshacer   { background: rgba(255,255,255,0.04); border-color: var(--border); color: var(--text2); font-size: 11px; }
+  .btn-deshacer:hover { border-color: var(--warn); color: var(--warn); }
+
+  /* ── EMPTY STATE ── */
+  .empty { text-align: center; padding: 64px 24px; color: var(--text2); }
+  .empty-icon  { font-size: 48px; margin-bottom: 16px; }
+  .empty-title { font-size: 18px; color: var(--text); margin-bottom: 8px; }
+  .empty-sub   { font-size: 13px; }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    transform: translateY(100px);
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 999;
+    pointer-events: none;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* ── PROGRESS ── */
+  .progress-wrap {
+    height: 4px; background: var(--border); border-radius: 2px;
+    overflow: hidden; margin-bottom: 20px;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), #00b880);
+    border-radius: 2px; transition: width 0.4s ease;
+  }
+
+  /* ── RESUMEN ── */
+  .resumen {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 20px; margin-top: 24px; display: none;
+  }
+
+  /* ── EXPORTAR ── */
+  .export-bar {
+    display: none;
+    gap: 8px;
+    margin-top: 16px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .export-bar.visible { display: flex; }
+  .export-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-right: 8px;
+  }
+  .btn-export {
+    padding: 7px 16px;
+    border-radius: 5px;
+    border: 1px solid var(--accent);
+    background: rgba(0,229,160,0.08);
+    color: var(--accent);
+    font-size: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-weight: 600;
+  }
+  .btn-export:hover { background: var(--accent); color: #000; }
+  .btn-export.secondary {
+    border-color: var(--border);
+    background: rgba(255,255,255,0.04);
+    color: var(--text2);
+  }
+  .btn-export.secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .resumen.visible { display: block; }
+  .resumen-title {
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+    color: var(--accent); text-transform: uppercase;
+    letter-spacing: 1px; margin-bottom: 12px;
+  }
+  .resumen-fila {
+    display: flex; justify-content: space-between;
+    padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px;
+  }
+  .resumen-fila:last-child { border-bottom: none; }
+  .resumen-fila span:last-child { font-family: 'IBM Plex Mono', monospace; }
+
+  @media (max-width: 600px) {
+    .card { grid-template-columns: 1fr; }
+    .card-actions { flex-direction: row; flex-wrap: wrap; }
+    .stats-bar { flex-wrap: wrap; }
+    .grupo-header { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div class="logo">▸ Cobranza</div>
+    <button class="btn-borrar-memoria" onclick="borrarMemoria()" title="Borrar memoria semanal">🗑️ Borrar memoria</button>
+  </div>
+  <div class="semana-label" id="semanaLabel"></div>
+  <div class="fecha-hoy" id="fechaHoy"></div>
+</header>
+
+<div class="stats-bar">
+  <div class="stat pendiente">
+    <div class="stat-num" id="statTotalExcel">0</div>
+    <div class="stat-label">Total créditos</div>
+  </div>
+  <div class="stat pendiente">
+    <div class="stat-num" id="statTotal">0</div>
+    <div class="stat-label">Total semana</div>
+  </div>
+  <div class="stat aldia">
+    <div class="stat-num" id="statAldia">0</div>
+    <div class="stat-label">Al día</div>
+  </div>
+  <div class="stat mora">
+    <div class="stat-num" id="statMora">0</div>
+    <div class="stat-label">En mora</div>
+  </div>
+  <div class="stat recordatorio">
+    <div class="stat-num" id="statRec">0</div>
+    <div class="stat-label">Recordatorio</div>
+  </div>
+  <div class="stat suspendido">
+    <div class="stat-num" id="statSuspendido">0</div>
+    <div class="stat-label">Suspendido</div>
+  </div>
+  <div class="stat proceso">
+    <div class="stat-num" id="statProceso">0</div>
+    <div class="stat-label">Proceso</div>
+  </div>
+  <div class="stat otros">
+    <div class="stat-num" id="statOtros">0</div>
+    <div class="stat-label">Otros</div>
+  </div>
+  <div class="stat enviado">
+    <div class="stat-num" id="statEnviado">0</div>
+    <div class="stat-label">Enviados</div>
+  </div>
+</div>
+
+<main>
+  <!-- Upload -->
+  <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+    <div class="upload-icon">📂</div>
+    <div class="upload-title">Cargar Excel de créditos</div>
+    <div class="upload-sub">creditos.xlsx · Haz clic o arrastra el archivo aquí</div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls">
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-wrap" id="progressWrap" style="display:none">
+    <div class="progress-bar" id="progressBar" style="width:0%"></div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="filtros" id="filtrosBar" style="display:none">
+    <button class="filtro-btn active" onclick="filtrar('todos', this)">Todos</button>
+    <button class="filtro-btn aldia"   onclick="filtrar('aldia', this)">💚 Al día</button>
+    <button class="filtro-btn mora"   onclick="filtrar('mora', this)">🔴 Mora</button>
+    <button class="filtro-btn rec"    onclick="filtrar('recordatorio', this)">🟡 Recordatorio</button>
+    <button class="filtro-btn susp"    onclick="filtrar('suspendido', this)">⛔ Suspendido</button>
+    <button class="filtro-btn proceso" onclick="filtrar('proceso', this)">⚖️ Proceso</button>
+    <button class="filtro-btn otros"   onclick="filtrar('otros', this)">🔵 Otros</button>
+    <button class="filtro-btn"        onclick="filtrar('enviados', this)">✅ Enviados</button>
+    <button class="filtro-btn"        onclick="filtrar('omitidos', this)">⏭️ Omitidos</button>
+    <button class="filtro-btn"        onclick="filtrar('pendientes', this)">⏳ Todo lo pendiente</button>
+    <input class="search-box" type="text" placeholder="Buscar nombre o # crédito..." id="searchBox" oninput="renderizar()">
+  </div>
+
+  <!-- Sub-filtros Mora -->
+  <div class="subfiltros-mora" id="subfiltrosMora">
+    <span class="sub-label">▸ Días:</span>
+    <button class="subfiltro-mora-btn active" onclick="subFiltrarMora('todos', this)">Todos <span class="sub-count" id="subMoraTodos"></span></button>
+    <button class="subfiltro-mora-btn" onclick="subFiltrarMora(1, this)">1 día <span class="sub-count" id="subMora1"></span></button>
+    <button class="subfiltro-mora-btn" onclick="subFiltrarMora(2, this)">2 días <span class="sub-count" id="subMora2"></span></button>
+    <button class="subfiltro-mora-btn" onclick="subFiltrarMora(3, this)">3 días <span class="sub-count" id="subMora3"></span></button>
+    <button class="subfiltro-mora-btn" onclick="subFiltrarMora(4, this)">4 días <span class="sub-count" id="subMora4"></span></button>
+    <button class="subfiltro-mora-btn" onclick="subFiltrarMora(5, this)">5 días <span class="sub-count" id="subMora5"></span></button>
+    <button class="subfiltro-mora-btn" onclick="subFiltrarMora(6, this)">6 días <span class="sub-count" id="subMora6"></span></button>
+    <button class="subfiltro-mora-btn" onclick="subFiltrarMora(7, this)">7 días <span class="sub-count" id="subMora7"></span></button>
+    <button class="subfiltro-mora-btn" onclick="subFiltrarMora(8, this)">8 días <span class="sub-count" id="subMora8"></span></button>
+    <button class="subfiltro-mora-btn" onclick="subFiltrarMora(9, this)">9 días <span class="sub-count" id="subMora9"></span></button>
+    <button class="subfiltro-mora-btn" onclick="subFiltrarMora(10, this)">10 días <span class="sub-count" id="subMora10"></span></button>
+    <button class="subfiltro-mora-btn" onclick="subFiltrarMora(15, this)">11-15 días <span class="sub-count" id="subMora15"></span></button>
+    <button class="subfiltro-mora-btn" onclick="subFiltrarMora(20, this)">16-20 días <span class="sub-count" id="subMora20"></span></button>
+    <button class="subfiltro-mora-btn" onclick="subFiltrarMora(31, this)">21-31 días <span class="sub-count" id="subMora31"></span></button>
+    <button class="subfiltro-mora-btn" onclick="subFiltrarMora('1-31', this)">1-31 días <span class="sub-count" id="subMora1_31"></span></button>
+    <div style="width:100%;height:0"></div>
+    <span class="sub-label">▸ Meses:</span>
+    <button class="subfiltro-mora-btn" onclick="subFiltrarMora('1m', this)">1 mes <span class="sub-count" id="subMora1m"></span></button>
+    <button class="subfiltro-mora-btn" onclick="subFiltrarMora('2m', this)">2 meses <span class="sub-count" id="subMora2m"></span></button>
+    <button class="subfiltro-mora-btn" onclick="subFiltrarMora('3m', this)">3 meses <span class="sub-count" id="subMora3m"></span></button>
+    <button class="subfiltro-mora-btn" onclick="subFiltrarMora('4m', this)">4 meses <span class="sub-count" id="subMora4m"></span></button>
+    <button class="subfiltro-mora-btn" onclick="subFiltrarMora('5m', this)">5 meses <span class="sub-count" id="subMora5m"></span></button>
+    <button class="subfiltro-mora-btn" onclick="subFiltrarMora('6-12m', this)">6-12 meses <span class="sub-count" id="subMora6_12m"></span></button>
+    <button class="subfiltro-mora-btn" onclick="subFiltrarMora('1-12m', this)">1-12 meses <span class="sub-count" id="subMora1_12m"></span></button>
+    <button class="subfiltro-mora-btn" onclick="subFiltrarMora('12m+', this)">+12 meses <span class="sub-count" id="subMora12plus"></span></button>
+  </div>
+
+  <!-- Sub-filtros Recordatorio -->
+  <div class="subfiltros-rec" id="subfiltrosRec">
+    <span class="sub-label">▸ Días:</span>
+    <button class="subfiltro-btn active" onclick="subFiltrarRec('todos', this)">Todos <span class="sub-count" id="subRecTodos"></span></button>
+    <button class="subfiltro-btn" onclick="subFiltrarRec(0, this)">Hoy <span class="sub-count" id="subRec0"></span></button>
+    <button class="subfiltro-btn" onclick="subFiltrarRec(1, this)">1 día <span class="sub-count" id="subRec1"></span></button>
+    <button class="subfiltro-btn" onclick="subFiltrarRec(2, this)">2 días <span class="sub-count" id="subRec2"></span></button>
+    <button class="subfiltro-btn" onclick="subFiltrarRec(3, this)">3 días <span class="sub-count" id="subRec3"></span></button>
+    <button class="subfiltro-btn" onclick="subFiltrarRec(4, this)">4 días <span class="sub-count" id="subRec4"></span></button>
+    <button class="subfiltro-btn" onclick="subFiltrarRec(5, this)">5 días <span class="sub-count" id="subRec5"></span></button>
+    <button class="subfiltro-btn" onclick="subFiltrarRec(6, this)">6 días <span class="sub-count" id="subRec6"></span></button>
+    <button class="subfiltro-btn" onclick="subFiltrarRec(7, this)">7 días <span class="sub-count" id="subRec7"></span></button>
+    <button class="subfiltro-btn" onclick="subFiltrarRec(8, this)">8 días <span class="sub-count" id="subRec8"></span></button>
+    <button class="subfiltro-btn" onclick="subFiltrarRec(9, this)">9 días <span class="sub-count" id="subRec9"></span></button>
+    <button class="subfiltro-btn" onclick="subFiltrarRec(10, this)">10 días <span class="sub-count" id="subRec10"></span></button>
+    <button class="subfiltro-btn" onclick="subFiltrarRec('11-15', this)">11-15 días <span class="sub-count" id="subRec11_15"></span></button>
+    <button class="subfiltro-btn" onclick="subFiltrarRec('16-20', this)">16-20 días <span class="sub-count" id="subRec16_20"></span></button>
+    <button class="subfiltro-btn" onclick="subFiltrarRec('21-31', this)">21-31 días <span class="sub-count" id="subRec21_31"></span></button>
+    <button class="subfiltro-btn" onclick="subFiltrarRec('1-31', this)">1-31 días <span class="sub-count" id="subRec1_31"></span></button>
+  </div>
+
+  <!-- Lista -->
+  <div class="lista" id="lista"></div>
+
+  <!-- Exportar -->
+  <div class="export-bar" id="exportBar">
+    <span class="export-title">▸ Exportar</span>
+    <button class="btn-export" onclick="exportarExcel('filtro')">📥 Exportar filtro actual</button>
+    <button class="btn-export secondary" onclick="exportarExcel('todo')">📥 Exportar todo (por estado)</button>
+  </div>
+
+  <!-- Resumen -->
+  <div class="resumen" id="resumen">
+    <div class="resumen-title">▸ Resumen de la semana</div>
+    <div id="resumenContenido"></div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// ─────────────────────────────────────────────
+//  ESTADO GLOBAL
+// ─────────────────────────────────────────────
+let clientes     = [];   // lista plana de préstamos
+let filtroActivo = 'todos';
+let subFiltroRec = 'todos';  // sub-filtro de recordatorio: 'todos', 0, 1, 2, 3, 4, 5
+let subFiltroMora = 'todos'; // sub-filtro de mora: 'todos', 1-10, 30
+let historial    = {};
+let totalExcel   = 0;  // total fijo leído del Excel
+
+const HOY = new Date();
+HOY.setHours(0, 0, 0, 0);
+
+// Pre-calculado una sola vez (BUG corregido: no recalcular en cada iteración)
+const ESTADOS_EXCLUIDOS_NORM = ['maneja dany',''].map(s =>
+  s.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+);
+
+// Estados de crédito que se mapean a tipos especiales
+const ESTADOS_PROCESO    = ['p. judicial'].map(s => s.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+const ESTADOS_SUSPENDIDO = ['suspendido'].map(s => s.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+
+// ─────────────────────────────────────────────
+//  UTILIDADES
+// ─────────────────────────────────────────────
+function norm(s) {
+  return String(s || '').trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
+function parseDinero(v) {
+  if (v === null || v === undefined) return 0;
+  let s = String(v).trim();
+  if (!s) return 0;
+  s = s.replace(/[^\d.,-]/g, '');
+  if (!s) return 0;
+  const lastComma = s.lastIndexOf(',');
+  const lastDot   = s.lastIndexOf('.');
+  let decimalSep  = null;
+  if (lastComma !== -1 && lastDot !== -1)  decimalSep = lastComma > lastDot ? ',' : '.';
+  else if (lastComma !== -1) decimalSep = (s.length - lastComma - 1) <= 2 ? ',' : null;
+  else if (lastDot   !== -1) decimalSep = (s.length - lastDot   - 1) <= 2 ? '.' : null;
+  if      (decimalSep === ',') { s = s.replace(/\./g,''); s = s.replace(/,/g,'.'); }
+  else if (decimalSep === '.') { s = s.replace(/,/g,''); }
+  else                          { s = s.replace(/[.,]/g,''); }
+  const n = parseFloat(s);
+  return isFinite(n) ? n : 0;
+}
+
+function parseFecha(v) {
+  if (!v && v !== 0) return null;
+  if (v instanceof Date && !isNaN(v.getTime())) {
+    const d = new Date(v); d.setHours(0,0,0,0); return d;
+  }
+  if (typeof v === 'number' && isFinite(v)) {
+    // Número serial de Excel → fecha
+    const millis = Math.round((v - 25569) * 86400 * 1000);
+    const d = new Date(millis);
+    if (!isNaN(d.getTime())) { d.setHours(0,0,0,0); return d; }
+  }
+  const s = String(v).trim();
+  if (!s) return null;
+  const d1 = new Date(s);
+  if (!isNaN(d1.getTime())) { d1.setHours(0,0,0,0); return d1; }
+  const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (m) {
+    const dd = Number(m[1]), mm = Number(m[2]) - 1;
+    const yy = m[3].length === 2 ? Number('20' + m[3]) : Number(m[3]);
+    const d2 = new Date(yy, mm, dd);
+    if (!isNaN(d2.getTime())) { d2.setHours(0,0,0,0); return d2; }
+  }
+  return null;
+}
+
+// BUG corregido: uid sin pipes para evitar problemas con selectores CSS
+function historialKey(c) {
+  const num = String(c.numero);
+  if (c.tipo === 'mora') return `mora_${num}`;
+  const fv  = c.fechaVenc ? c.fechaVenc.toISOString().split('T')[0] : 'sin_fecha';
+  const sub = c.subTipo || 'rec';
+  return `rec_${num}_${fv}_${sub}`;
+}
+
+function diaLaboral(fecha) {
+  // Devuelve una NUEVA fecha movida al próximo lunes si cae en fin de semana
+  const d = new Date(fecha);
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  return d;
+}
+
+// BUG corregido: comparación de fechas por toDateString(), no por getTime() exacto
+function mismodia(a, b) {
+  return a.toDateString() === b.toDateString();
+}
+
+function puedeEnviar(c) {
+  // Ya no filtramos por historial semanal — restaurarEstados se encarga de restaurar el estado
+  // Solo filtramos si hay un registro de una semana anterior (que no debería existir porque se limpia)
+  const key = historialKey(c);
+  if (!historial[key]) return true;
+  // Si el registro es de la semana actual, dejarlo pasar (se restaurará después)
+  return true;
+}
+
+// ─────────────────────────────────────────────
+//  FECHA EN HEADER
+// ─────────────────────────────────────────────
+document.getElementById('fechaHoy').textContent = HOY.toLocaleDateString('es-CO', {
+  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+});
+
+// Mostrar rango de semana en header
+(function() {
+  const lunes = new Date(HOY);
+  const dia = lunes.getDay();
+  const diff = dia === 0 ? -6 : 1 - dia;
+  lunes.setDate(lunes.getDate() + diff);
+  const domingo = new Date(lunes);
+  domingo.setDate(domingo.getDate() + 6);
+  const fmt = d => d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  document.getElementById('semanaLabel').textContent = `Semana: ${fmt(lunes)} — ${fmt(domingo)}`;
+})();
+
+// ─────────────────────────────────────────────
+//  HISTORIAL (localStorage — memoria semanal lunes a domingo)
+// ─────────────────────────────────────────────
+function getLunesDeSemana(fecha) {
+  const d = new Date(fecha);
+  d.setHours(0, 0, 0, 0);
+  const dia = d.getDay(); // 0=dom, 1=lun, ..., 6=sab
+  const diff = dia === 0 ? -6 : 1 - dia; // retroceder al lunes
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().split('T')[0]; // "2025-03-03" por ejemplo
+}
+
+const SEMANA_ACTUAL = getLunesDeSemana(HOY);
+
+function cargarHistorial() {
+  try {
+    const raw = localStorage.getItem('cobranza_historial');
+    if (!raw) return {};
+    const data = JSON.parse(raw);
+    // Si la semana guardada es diferente a la actual, limpiar
+    if (data.semana !== SEMANA_ACTUAL) {
+      localStorage.removeItem('cobranza_historial');
+      return {};
+    }
+    return data.registros || {};
+  } catch (e) {
+    console.warn('Error cargando historial:', e);
+    return {};
+  }
+}
+
+function guardarHistorial() {
+  try {
+    const data = {
+      semana: SEMANA_ACTUAL,
+      registros: historial
+    };
+    localStorage.setItem('cobranza_historial', JSON.stringify(data));
+  } catch (e) {
+    console.warn('Error guardando historial:', e);
+  }
+}
+
+// Borrar memoria semanal manualmente
+function borrarMemoria() {
+  if (!confirm('¿Borrar toda la memoria de la semana? Todos los estados (enviado/omitido) se reiniciarán.')) return;
+  localStorage.removeItem('cobranza_historial');
+  location.reload();
+}
+
+// Restaurar estados de créditos desde el historial guardado
+function restaurarEstados() {
+  if (Object.keys(historial).length === 0) return;
+  let restaurados = 0;
+  for (const c of clientes) {
+    const key = historialKey(c);
+    if (historial[key]) {
+      c.estado = historial[key].estado || 'enviado';
+      restaurados++;
+    }
+  }
+  if (restaurados > 0) {
+    console.log(`%c↩ Restaurados ${restaurados} estados desde historial semanal (semana ${SEMANA_ACTUAL})`, 'color: #ffd166; font-weight: bold');
+  }
+}
+
+// ─────────────────────────────────────────────
+//  UPLOAD / DRAG & DROP
+// ─────────────────────────────────────────────
+const uploadZone = document.getElementById('uploadZone');
+const fileInput  = document.getElementById('fileInput');
+
+uploadZone.addEventListener('dragover',  e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', ()=> uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  procesarArchivo(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => procesarArchivo(e.target.files[0]));
+
+// ─────────────────────────────────────────────
+//  PROCESAR ARCHIVO
+// ─────────────────────────────────────────────
+function procesarArchivo(file) {
+  if (!file) return;
+  historial = cargarHistorial();
+
+  document.getElementById('progressWrap').style.display = 'block';
+  document.getElementById('progressBar').style.width    = '30%';
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      document.getElementById('progressBar').style.width = '60%';
+      const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true, password: '5810801' });
+      const ws = wb.Sheets['Vigentes'];
+      if (!ws) { mostrarToast('❌ No se encontró la hoja "Vigentes"'); return; }
+
+      const data = XLSX.utils.sheet_to_json(ws, {
+        header: 1, defval: '', raw: false, dateNF: 'yyyy-mm-dd'
+      });
+
+      clientes = [];
+      let debugTotal = 0, debugSaltados = {}, debugFiltradosHistorial = [];
+      const todosLosNumeros = [];
+
+      for (let i = 7; i < data.length; i++) {
+        const row = data[i];
+
+        const numero      = row[0];
+        const estCredRaw  = String(row[2] || '').trim();
+        const estPagoRaw  = String(row[3] || '').trim();
+        const estCredNorm = norm(estCredRaw);
+        const estPagoNorm = norm(estPagoRaw);
+        const meses       = parseInt(row[4]) || 0;
+        const nombre      = String(row[9]  || '').trim();
+        const capital     = parseDinero(row[15]);
+        const interes     = parseDinero(row[17]);
+        const telefono    = String(row[25] || '').trim();
+        const fechaPago   = String(row[6]  || '').trim();
+
+        if (!numero || isNaN(Number(numero))) continue;
+        debugTotal++;
+        todosLosNumeros.push(Number(numero));
+
+        if (ESTADOS_EXCLUIDOS_NORM.includes(estCredNorm)) {
+          debugSaltados[`excluido:${estCredRaw||'(vacío)'}`] = (debugSaltados[`excluido:${estCredRaw||'(vacío)'}`] || 0) + 1;
+          continue;
+        }
+        if (!nombre) {
+          debugSaltados[`sin_nombre:#${numero}`] = 1;
+          continue;
+        }
+
+        // Determinar tipo
+        const esProceso    = ESTADOS_PROCESO.includes(estCredNorm);
+        const esSuspendido = ESTADOS_SUSPENDIDO.includes(estCredNorm);
+        const esVigente    = estCredNorm === 'vigente';
+
+        let tipo;
+        if (esProceso)              tipo = 'proceso';
+        else if (esSuspendido)      tipo = 'suspendido';
+        else if (!esVigente) {
+          // Estado de crédito desconocido — pero si el estado de pago dice mora o ya casi mes, respetar eso
+          if (estPagoNorm === 'mora')             tipo = 'mora';
+          else if (estPagoNorm === 'ya casi mes') tipo = 'recordatorio';
+          else if (estPagoNorm === 'al dia')      tipo = 'aldia';
+          else                                    tipo = 'otros';
+          console.log(`⚠️ Crédito #${numero}: estado crédito "${estCredRaw}" no es "Vigente" → tipo: ${tipo}`);
+        }
+        else if (estPagoNorm === 'mora')        tipo = 'mora';
+        else if (estPagoNorm === 'ya casi mes') tipo = 'recordatorio';
+        else if (estPagoNorm === 'al dia')      tipo = 'aldia';
+        else                                    tipo = 'otros';
+
+        // ── Leer hoja individual del crédito (mora y recordatorio) ──
+        let fechaVenc        = null;
+        let fechasPendientes = [];
+
+        const hojaCliente = wb.Sheets[String(numero)];
+        if (hojaCliente) {
+          const filas = XLSX.utils.sheet_to_json(hojaCliente, {
+            header: 1, defval: '', raw: true, dateNF: 'yyyy-mm-dd'
+          });
+          let cercana = null;
+          for (let j = 8; j < filas.length; j++) {
+            const fila   = filas[j];
+            const estado = norm(String(fila[5] || ''));
+
+            if (estado === 'pendiente') {
+              const fp = parseFecha(fila[2] || fila[1]);
+              if (fp) fechasPendientes.push(fp);
+            }
+            if (estado === 'ya casi mes') {
+              const fd = parseFecha(fila[2] || fila[1]);
+              if (fd && fd >= HOY && (!cercana || fd < cercana)) cercana = fd;
+            }
+          }
+          if (cercana) fechaVenc = new Date(cercana);
+          fechasPendientes.sort((a, b) => a - b);
+        }
+
+        // ── Crear registros según tipo ──
+        if (tipo === 'proceso' || tipo === 'suspendido' || tipo === 'otros' || tipo === 'aldia') {
+          // Registro informativo simple
+          const estCredOriginal = String(row[2] || '').trim();
+          const estPagoOriginal = String(row[3] || '').trim();
+          const etiqueta = (tipo === 'otros' || tipo === 'aldia') ? estPagoOriginal : estCredOriginal;
+          const fechaEnvio = diaLaboral(HOY);
+          const capitalFmtLocal = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(capital);
+          const item = {
+            uid:             '',
+            numero:          Number(numero),
+            nombre,
+            tipo,
+            subTipo:         etiqueta,
+            meses,
+            capital,
+            interes,
+            telefono,
+            fechaPago,
+            fechaEnvio,
+            fechaVenc:       null,
+            fechasPendientes: [],
+            esHoy:           true,
+            estado:          'pendiente',
+            mensaje:         `Crédito #${numero} — ${etiqueta}. Capital: ${capitalFmtLocal}.`
+          };
+          item.uid = `${tipo}_${Number(numero)}`;
+          clientes.push(item);
+
+        } else if (tipo === 'mora') {
+          const fechaEnvio = diaLaboral(HOY);
+          const item = {
+            uid:             '',
+            numero:          Number(numero),
+            nombre,
+            tipo,
+            subTipo:         '',
+            meses,
+            capital,
+            interes,
+            telefono,
+            fechaPago,
+            fechaEnvio,
+            fechaVenc:       null,
+            fechasPendientes,
+            esHoy:           mismodia(fechaEnvio, HOY),
+            estado:          'pendiente',
+            mensaje:         generarMensaje({ nombre, tipo, meses, capital, fechaVenc: null, fechasPendientes })
+          };
+          item.uid = historialKey(item);
+          if (!puedeEnviar(item)) {
+            debugFiltradosHistorial.push(`#${numero} (mora)`);
+            continue;
+          }
+          clientes.push(item);
+
+        } else {
+          // Recordatorio → hasta 2 envíos: T-3 (3 días antes) y HOY (el día del vencimiento)
+          const base = fechaVenc || HOY;
+          const envios = [
+            { subTipo: 'T-3', offset: -3 },
+            { subTipo: 'HOY', offset:  0 },
+          ];
+          let agregado = false;
+          for (const ev of envios) {
+            const raw = new Date(base);
+            raw.setDate(raw.getDate() + ev.offset);
+            const fechaEnvio = diaLaboral(raw);
+
+            // T-3: solo mostrar si la fecha de envío ya llegó (hoy o antes)
+            if (ev.subTipo === 'T-3' && fechaEnvio > HOY) continue;
+            // HOY: solo mostrar si hoy es el día del vencimiento o después
+            if (ev.subTipo === 'HOY' && base > HOY) continue;
+
+            const fechaEnvioFinal = fechaEnvio < HOY ? diaLaboral(HOY) : fechaEnvio;
+
+            const item = {
+              uid:        '',
+              numero:     Number(numero),
+              nombre,
+              tipo,
+              subTipo:    ev.subTipo,
+              meses,
+              capital,
+              interes,
+              telefono,
+              fechaPago,
+              fechaEnvio: fechaEnvioFinal,
+              fechaVenc:  fechaVenc ? new Date(fechaVenc) : null,
+              esHoy:      mismodia(fechaEnvioFinal, HOY),
+              estado:     'pendiente',
+              mensaje:    generarMensaje({ nombre, tipo, meses, capital, fechaVenc, fechasPendientes: [] })
+            };
+            item.uid = historialKey(item);
+            if (!puedeEnviar(item)) {
+              debugFiltradosHistorial.push(`#${numero} (rec ${ev.subTipo})`);
+              continue;
+            }
+            clientes.push(item);
+            agregado = true;
+          }
+          // Si ningún envío aplicó hoy, igual mostrar el crédito con fecha futura
+          if (!agregado) {
+            const fechaEnvio = diaLaboral(base);
+            const item = {
+              uid:        `rec_${Number(numero)}_futuro`,
+              numero:     Number(numero),
+              nombre,
+              tipo,
+              subTipo:    'PRÓXIMO',
+              meses,
+              capital,
+              interes,
+              telefono,
+              fechaPago,
+              fechaEnvio,
+              fechaVenc:  fechaVenc ? new Date(fechaVenc) : null,
+              esHoy:      false,
+              estado:     'pendiente',
+              mensaje:    generarMensaje({ nombre, tipo, meses, capital, fechaVenc, fechasPendientes: [] })
+            };
+            clientes.push(item);
+          }
+        }
+      }
+
+      // Ordenar: mora primero, recordatorio, aldia, otros, proceso y suspendido al final
+      const tipoOrden = { mora: 0, recordatorio: 1, aldia: 2, otros: 3, proceso: 4, suspendido: 5 };
+      clientes.sort((a, b) => {
+        const oa = tipoOrden[a.tipo] ?? 3;
+        const ob = tipoOrden[b.tipo] ?? 3;
+        if (oa !== ob) return oa - ob;
+        return a.fechaEnvio - b.fechaEnvio;
+      });
+
+      // Debug: mostrar en consola qué se leyó y qué se saltó
+      const numsCargados = new Set(clientes.map(c => c.numero));
+      const numsUnicos = [...new Set(todosLosNumeros)].sort((a,b) => a-b);
+      const numsFaltantes = numsUnicos.filter(n => !numsCargados.has(n));
+
+      console.log('%c═══ DEBUG COBRANZA ═══', 'color: #00e5a0; font-weight: bold; font-size: 14px');
+      console.log('Total filas con número válido:', debugTotal);
+      console.log('Números únicos en Excel:', numsUnicos.length, '→', numsUnicos.join(', '));
+      console.log('Registros cargados:', clientes.length);
+      console.log('Números únicos cargados:', numsCargados.size, '→', [...numsCargados].sort((a,b)=>a-b).join(', '));
+      console.log('%c── FALTANTES ──', 'color: #ff4444; font-weight: bold');
+      console.log('Números NO cargados:', numsFaltantes.length, '→', numsFaltantes.join(', '));
+      console.log('%c── RAZONES ──', 'color: #ffd166; font-weight: bold');
+      console.log('Saltados (excluido/sin nombre):', debugSaltados);
+      console.log('Filtrados por historial (ya enviados):', debugFiltradosHistorial.length, '→', debugFiltradosHistorial.join(', '));
+      console.log('Por tipo:', {
+        mora: clientes.filter(c => c.tipo === 'mora').length,
+        recordatorio: clientes.filter(c => c.tipo === 'recordatorio').length,
+        aldia: clientes.filter(c => c.tipo === 'aldia').length,
+        otros: clientes.filter(c => c.tipo === 'otros').length,
+        proceso: clientes.filter(c => c.tipo === 'proceso').length,
+        suspendido: clientes.filter(c => c.tipo === 'suspendido').length,
+      });
+      console.log('%c═══════════════════════', 'color: #00e5a0; font-weight: bold');
+
+      document.getElementById('progressBar').style.width = '100%';
+      // Guardar total fijo del Excel
+      const moraCount = clientes.filter(c => c.tipo === 'mora').length;
+      const recCount  = new Set(clientes.filter(c => c.tipo === 'recordatorio').map(c => c.numero)).size;
+      const procCount = clientes.filter(c => c.tipo === 'proceso').length;
+      const suspCount = clientes.filter(c => c.tipo === 'suspendido').length;
+      const otrosCount = clientes.filter(c => c.tipo === 'otros').length;
+      const aldiaCount = clientes.filter(c => c.tipo === 'aldia').length;
+      totalExcel = moraCount + recCount + procCount + suspCount + otrosCount + aldiaCount;
+      // Restaurar estados guardados de la semana
+      restaurarEstados();
+      setTimeout(() => {
+        document.getElementById('progressWrap').style.display = 'none';
+        uploadZone.style.display = 'none';
+        document.getElementById('filtrosBar').style.display = 'flex';
+        document.getElementById('exportBar').classList.add('visible');
+        renderizar();
+        actualizarStats();
+        actualizarResumen();
+        mostrarToast(`✅ ${numsCargados.size} créditos cargados (${clientes.length} registros)`);
+      }, 400);
+
+    } catch (err) {
+      mostrarToast('❌ Error al leer el Excel: ' + err.message);
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ─────────────────────────────────────────────
+//  GENERAR MENSAJE
+// ─────────────────────────────────────────────
+function generarMensaje({ nombre, tipo, meses, capital, fechaVenc, fechasPendientes = [] }) {
+  const primerNombre = nombre.split(' ')[0];
+  const capitalFmt   = new Intl.NumberFormat('es-CO', {
+    style: 'currency', currency: 'COP', maximumFractionDigits: 0
+  }).format(capital);
+
+  if (tipo === 'mora') {
+    const mesesTexto = meses === 1 ? '1 mes' : `${meses} meses`;
+
+    // Listar fechas pendientes numeradas
+    let listaFechas = '';
+    if (fechasPendientes.length > 0) {
+      listaFechas = '\n\n' + fechasPendientes.map((f, i) => {
+        const fechaFmt = new Date(f).toLocaleDateString('es-CO', {
+          day: '2-digit', month: '2-digit', year: 'numeric'
+        });
+        return `${i + 1}. ${fechaFmt} = Pendiente pago`;
+      }).join('\n');
+    }
+
+    return `Hola ${primerNombre}, espero que se encuentre bien. El crédito que tiene con nosotros por un capital de ${capitalFmt}. Le informamos que tiene ${mesesTexto} de intereses y/o cuotas pendientes.${listaFechas}\n\nQuedo atento a tu mensaje.`;
+  } else {
+    const fechaTexto = fechaVenc
+      ? new Date(fechaVenc).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' })
+      : 'próximamente';
+    return `Hola ${primerNombre}, le recordamos amablemente que su próximo pago de intereses y/o cuota vence el ${fechaTexto}. Gracias por su puntualidad. Quedo atento a cualquier consulta.`;
+  }
+}
+
+// ─────────────────────────────────────────────
+//  RENDERIZAR — con agrupación por cliente
+// ─────────────────────────────────────────────
+function renderizar() {
+  const lista = document.getElementById('lista');
+
+  // Aplicar filtro activo
+  let filtrados = clientes.filter(c => {
+    if (filtroActivo === 'mora')          return c.tipo === 'mora';
+    if (filtroActivo === 'recordatorio')  return c.tipo === 'recordatorio';
+    if (filtroActivo === 'pendientes')    return c.estado === 'pendiente';
+    if (filtroActivo === 'enviados')      return c.estado === 'enviado';
+    if (filtroActivo === 'omitidos')      return c.estado === 'no_enviado';
+    if (filtroActivo === 'proceso')       return c.tipo === 'proceso';
+    if (filtroActivo === 'suspendido')    return c.tipo === 'suspendido';
+    if (filtroActivo === 'otros')         return c.tipo === 'otros';
+    if (filtroActivo === 'aldia')         return c.tipo === 'aldia';
+    return true;
+  });
+
+  // Aplicar sub-filtro de mora por días/meses
+  if (filtroActivo === 'mora' && subFiltroMora !== 'todos') {
+    const f = subFiltroMora;
+    if (f === '1-31') {
+      filtrados = filtrados.filter(c => { const d = diasDeMora(c); return d !== null && d >= 1 && d <= 31; });
+    } else if (f === '1m') {
+      filtrados = filtrados.filter(c => c.meses === 1);
+    } else if (f === '2m') {
+      filtrados = filtrados.filter(c => c.meses === 2);
+    } else if (f === '3m') {
+      filtrados = filtrados.filter(c => c.meses === 3);
+    } else if (f === '4m') {
+      filtrados = filtrados.filter(c => c.meses === 4);
+    } else if (f === '5m') {
+      filtrados = filtrados.filter(c => c.meses === 5);
+    } else if (f === '6-12m') {
+      filtrados = filtrados.filter(c => c.meses >= 6 && c.meses <= 12);
+    } else if (f === '1-12m') {
+      filtrados = filtrados.filter(c => c.meses >= 1 && c.meses <= 12);
+    } else if (f === '12m+') {
+      filtrados = filtrados.filter(c => c.meses >= 1);
+    } else {
+      const diasFiltro = Number(f);
+      if (diasFiltro === 15) {
+        filtrados = filtrados.filter(c => { const d = diasDeMora(c); return d !== null && d >= 11 && d <= 15; });
+      } else if (diasFiltro === 20) {
+        filtrados = filtrados.filter(c => { const d = diasDeMora(c); return d !== null && d >= 16 && d <= 20; });
+      } else if (diasFiltro === 31) {
+        filtrados = filtrados.filter(c => { const d = diasDeMora(c); return d !== null && d >= 21 && d <= 31; });
+      } else {
+        // Días exactos (1-10)
+        filtrados = filtrados.filter(c => diasDeMora(c) === diasFiltro);
+      }
+    }
+  }
+
+  // Aplicar sub-filtro de recordatorio por días para vencimiento
+  if (filtroActivo === 'recordatorio' && subFiltroRec !== 'todos') {
+    const f = subFiltroRec;
+    const numsConDias = new Set();
+    for (const c of filtrados) {
+      const d = diasParaVencimiento(c);
+      if (d === null) continue;
+      let match = false;
+      if (f === '11-15')     match = d >= 11 && d <= 15;
+      else if (f === '16-20') match = d >= 16 && d <= 20;
+      else if (f === '21-31') match = d >= 21 && d <= 31;
+      else if (f === '1-31')  match = d >= 0 && d <= 31;
+      else                    match = d === Number(f);
+      if (match) numsConDias.add(c.numero);
+    }
+    filtrados = filtrados.filter(c => numsConDias.has(c.numero));
+  }
+
+  // Búsqueda por nombre
+  const busqueda = (document.getElementById('searchBox')?.value || '').toLowerCase().trim();
+  if (busqueda) {
+    filtrados = filtrados.filter(c => c.nombre.toLowerCase().includes(busqueda) || String(c.numero).includes(busqueda));
+  }
+
+  if (filtrados.length === 0) {
+    lista.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">✅</div>
+        <div class="empty-title">Todo al día</div>
+        <div class="empty-sub">No hay clientes en esta categoría</div>
+      </div>`;
+    return;
+  }
+
+  // ── Agrupar por nombre de cliente ──
+  const grupos = new Map(); // nombre → [préstamos]
+  for (const c of filtrados) {
+    const key = c.nombre.toUpperCase().trim();
+    if (!grupos.has(key)) grupos.set(key, { nombre: c.nombre, items: [] });
+    grupos.get(key).items.push(c);
+  }
+
+  // ── Ordenar grupos: pendientes primero, enviados/omitidos al final ──
+  const gruposArr = [...grupos.values()].sort((a, b) => {
+    const aPendiente = a.items.some(c => c.estado === 'pendiente');
+    const bPendiente = b.items.some(c => c.estado === 'pendiente');
+    if (aPendiente && !bPendiente) return -1;
+    if (!aPendiente && bPendiente) return 1;
+    return 0;
+  });
+
+  // Separar pendientes y completados
+  const gruposPendientes = gruposArr.filter(g => g.items.some(c => c.estado === 'pendiente'));
+  const gruposCompletados = gruposArr.filter(g => g.items.every(c => c.estado !== 'pendiente'));
+
+  // Renderizar grupos
+  let html = gruposPendientes.map(g => renderGrupo(g)).join('');
+
+  if (gruposCompletados.length > 0) {
+    html += `
+      <div class="separador-completados">
+        <span class="separador-linea"></span>
+        <span class="separador-texto">▾ Completados (${gruposCompletados.length})</span>
+        <span class="separador-linea"></span>
+      </div>`;
+    html += gruposCompletados.map(g => renderGrupo(g)).join('');
+  }
+
+  lista.innerHTML = html;
+}
+
+function renderGrupo(g) {
+    // Números únicos de crédito del cliente, ordenados
+    const numerosUnicos = [...new Set(g.items.map(c => c.numero))].sort((a,b) => a - b);
+    const numerosHtml   = numerosUnicos
+      .map((n, i) => `${i > 0 ? '<span class="num-sep">·</span>' : ''}${n}`)
+      .join('');
+
+    const tieneMora  = g.items.some(c => c.tipo === 'mora');
+    const tieneRec   = g.items.some(c => c.tipo === 'recordatorio');
+    const tieneProceso = g.items.some(c => c.tipo === 'proceso');
+    const tieneSusp    = g.items.some(c => c.tipo === 'suspendido');
+    const tieneOtros   = g.items.some(c => c.tipo === 'otros');
+    const tieneAldia   = g.items.some(c => c.tipo === 'aldia');
+    const totalItems = g.items.length;
+
+    const badgesMora = tieneMora ? `<span class="grupo-badge mora">Mora</span>` : '';
+    const badgesRec  = tieneRec  ? `<span class="grupo-badge recordatorio">Recordatorio</span>` : '';
+    const badgesProc = tieneProceso ? `<span class="grupo-badge proceso">Proceso</span>` : '';
+    const badgesSusp = tieneSusp ? `<span class="grupo-badge suspendido">Suspendido</span>` : '';
+    const badgesOtros = tieneOtros ? `<span class="grupo-badge otros">Otros</span>` : '';
+    const badgesAldia = tieneAldia ? `<span class="grupo-badge aldia">Al día</span>` : '';
+    const badgeCount = totalItems > 1
+      ? `<span class="grupo-badge" style="background:rgba(255,255,255,0.06);color:var(--text2);border:1px solid var(--border)">${totalItems} préstamos</span>`
+      : '';
+
+    // Las tarjetas de préstamos dentro del grupo
+    const tarjetas = g.items.map(c => renderCard(c)).join('');
+    const safeKey = CSS.escape(g.nombre.toUpperCase().trim());
+    const todosCompletados = g.items.every(c => c.estado !== 'pendiente');
+    const grupoClass = todosCompletados ? 'grupo-cliente grupo-completado' : 'grupo-cliente';
+
+    // Botones grupales
+    const nombreBase64 = btoa(unescape(encodeURIComponent(g.nombre.toUpperCase().trim())));
+    let botonesGrupo = '';
+    if (todosCompletados) {
+      botonesGrupo = `
+        <div class="grupo-acciones">
+          <button class="btn-grupo deshacer" onclick="event.stopPropagation(); marcarGrupo('${nombreBase64}','pendiente')">↩ Deshacer todo</button>
+        </div>`;
+    } else {
+      botonesGrupo = `
+        <div class="grupo-acciones">
+          <button class="btn-grupo enviado" onclick="event.stopPropagation(); marcarGrupo('${nombreBase64}','enviado')">✅ Todo enviado</button>
+          <button class="btn-grupo omitir"  onclick="event.stopPropagation(); marcarGrupo('${nombreBase64}','no_enviado')">❌ Omitir todo</button>
+        </div>`;
+    }
+
+    return `
+      <div class="${grupoClass}" id="grupo-${safeKey}">
+        <div class="grupo-header" onclick="toggleGrupo(this)">
+          <div class="grupo-avatar">${numerosHtml}</div>
+          <div class="grupo-nombre">${g.nombre}</div>
+          <div class="grupo-badges">
+            ${badgesMora}${badgesRec}${badgesProc}${badgesSusp}${badgesOtros}${badgesAldia}${badgeCount}
+          </div>
+          <span class="grupo-toggle">▼</span>
+        </div>
+        ${botonesGrupo}
+        <div class="grupo-prestamos">
+          ${tarjetas}
+        </div>
+      </div>`;
+}
+
+function renderCard(c) {
+  const esHoy      = mismodia(c.fechaEnvio, HOY);
+  const fechaLabel = esHoy
+    ? 'HOY'
+    : c.fechaEnvio.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+  const fechaClase = esHoy ? 'fecha-hoy-badge' : 'fecha-futuro-badge';
+  const done       = c.estado === 'enviado';
+  const tipoBadge  = done
+    ? 'ENVIADO'
+    : c.tipo === 'mora'
+      ? 'MORA'
+      : `REC ${c.subTipo || ''}`.trim();
+
+  const safeUid = c.uid.replace(/'/g, "\\'");
+
+  return `
+    <div class="card ${c.tipo} ${done ? 'done' : ''}" id="card-${encodeURIComponent(c.uid)}">
+      <div class="card-badge">
+        <span class="badge-num">#${c.numero}</span>
+        <span class="badge-tipo">${tipoBadge}</span>
+        <span class="fecha-envio ${fechaClase}">${fechaLabel}</span>
+        ${c.meses > 0 ? `<span style="font-size:10px;color:var(--text2);margin-top:2px;">${c.meses}m</span>` : ''}
+      </div>
+      <div class="card-body">
+        <div class="card-meta">${formatTel(c.telefono)} · ${c.fechaPago}</div>
+        <div class="card-mensaje" onclick="copiarMensaje('${safeUid}')" title="Clic para copiar">
+          ${c.mensaje}
+          <div class="copy-hint">📋 clic para copiar</div>
+        </div>
+      </div>
+      <div class="card-actions">
+        ${!done ? `
+          <button class="btn-action btn-enviado"    onclick="marcar('${safeUid}','enviado')">✅ Enviado</button>
+          <button class="btn-action btn-no-enviado" onclick="marcar('${safeUid}','no_enviado')">❌ No env.</button>
+          <button class="btn-action btn-copy"       onclick="copiarMensaje('${safeUid}')">📋 Copiar</button>
+        ` : `
+          <button class="btn-action btn-deshacer" onclick="marcar('${safeUid}','pendiente')">↩ Deshacer</button>
+        `}
+      </div>
+    </div>`;
+}
+
+// ─────────────────────────────────────────────
+//  TOGGLE GRUPO
+// ─────────────────────────────────────────────
+function toggleGrupo(headerEl) {
+  headerEl.closest('.grupo-cliente').classList.toggle('abierto');
+}
+
+// ─────────────────────────────────────────────
+//  OBTENER CRÉDITOS FILTRADOS (visibles)
+// ─────────────────────────────────────────────
+function obtenerFiltrados() {
+  let filtrados = clientes.filter(c => {
+    if (filtroActivo === 'mora')          return c.tipo === 'mora';
+    if (filtroActivo === 'recordatorio')  return c.tipo === 'recordatorio';
+    if (filtroActivo === 'pendientes')    return c.estado === 'pendiente';
+    if (filtroActivo === 'enviados')      return c.estado === 'enviado';
+    if (filtroActivo === 'omitidos')      return c.estado === 'no_enviado';
+    if (filtroActivo === 'proceso')       return c.tipo === 'proceso';
+    if (filtroActivo === 'suspendido')    return c.tipo === 'suspendido';
+    if (filtroActivo === 'otros')         return c.tipo === 'otros';
+    if (filtroActivo === 'aldia')         return c.tipo === 'aldia';
+    return true;
+  });
+
+  // Sub-filtro mora
+  if (filtroActivo === 'mora' && subFiltroMora !== 'todos') {
+    const f = subFiltroMora;
+    if (f === '1-31') {
+      filtrados = filtrados.filter(c => { const d = diasDeMora(c); return d !== null && d >= 1 && d <= 31; });
+    } else if (f === '1m') {
+      filtrados = filtrados.filter(c => c.meses === 1);
+    } else if (f === '2m') {
+      filtrados = filtrados.filter(c => c.meses === 2);
+    } else if (f === '3m') {
+      filtrados = filtrados.filter(c => c.meses === 3);
+    } else if (f === '4m') {
+      filtrados = filtrados.filter(c => c.meses === 4);
+    } else if (f === '5m') {
+      filtrados = filtrados.filter(c => c.meses === 5);
+    } else if (f === '6-12m') {
+      filtrados = filtrados.filter(c => c.meses >= 6 && c.meses <= 12);
+    } else if (f === '1-12m') {
+      filtrados = filtrados.filter(c => c.meses >= 1 && c.meses <= 12);
+    } else if (f === '12m+') {
+      filtrados = filtrados.filter(c => c.meses >= 1);
+    } else {
+      const diasFiltro = Number(f);
+      if (diasFiltro === 15) {
+        filtrados = filtrados.filter(c => { const d = diasDeMora(c); return d !== null && d >= 11 && d <= 15; });
+      } else if (diasFiltro === 20) {
+        filtrados = filtrados.filter(c => { const d = diasDeMora(c); return d !== null && d >= 16 && d <= 20; });
+      } else if (diasFiltro === 31) {
+        filtrados = filtrados.filter(c => { const d = diasDeMora(c); return d !== null && d >= 21 && d <= 31; });
+      } else {
+        filtrados = filtrados.filter(c => diasDeMora(c) === diasFiltro);
+      }
+    }
+  }
+
+  // Sub-filtro recordatorio
+  if (filtroActivo === 'recordatorio' && subFiltroRec !== 'todos') {
+    const f = subFiltroRec;
+    const numsConDias = new Set();
+    for (const c of filtrados) {
+      const d = diasParaVencimiento(c);
+      if (d === null) continue;
+      let match = false;
+      if (f === '11-15')     match = d >= 11 && d <= 15;
+      else if (f === '16-20') match = d >= 16 && d <= 20;
+      else if (f === '21-31') match = d >= 21 && d <= 31;
+      else if (f === '1-31')  match = d >= 0 && d <= 31;
+      else                    match = d === Number(f);
+      if (match) numsConDias.add(c.numero);
+    }
+    filtrados = filtrados.filter(c => numsConDias.has(c.numero));
+  }
+
+  // Búsqueda
+  const busqueda = (document.getElementById('searchBox')?.value || '').toLowerCase().trim();
+  if (busqueda) {
+    filtrados = filtrados.filter(c => c.nombre.toLowerCase().includes(busqueda) || String(c.numero).includes(busqueda));
+  }
+
+  return filtrados;
+}
+
+// ─────────────────────────────────────────────
+//  MARCAR GRUPO COMPLETO
+// ─────────────────────────────────────────────
+function marcarGrupo(nombreBase64, estado) {
+  const grupoNombre = decodeURIComponent(escape(atob(nombreBase64)));
+  // Solo afectar los créditos que están visibles en el filtro actual
+  const visibles = obtenerFiltrados();
+  const grupoItems = visibles.filter(c => c.nombre.toUpperCase().trim() === grupoNombre);
+
+  if (grupoItems.length === 0) return;
+
+  for (const c of grupoItems) {
+    if (estado === 'pendiente' && c.estado !== 'pendiente') {
+      c.estado = 'pendiente';
+      delete historial[historialKey(c)];
+    } else if (estado === 'enviado' && c.estado === 'pendiente') {
+      c.estado = 'enviado';
+      historial[historialKey(c)] = {
+        fecha:     HOY.toISOString().split('T')[0],
+        tipo:      c.tipo,
+        subTipo:   c.subTipo || '',
+        nombre:    c.nombre,
+        fechaVenc: c.fechaVenc ? c.fechaVenc.toISOString().split('T')[0] : '',
+        estado:    'enviado'
+      };
+    } else if (estado === 'no_enviado' && c.estado === 'pendiente') {
+      c.estado = 'no_enviado';
+      historial[historialKey(c)] = {
+        fecha:     HOY.toISOString().split('T')[0],
+        tipo:      c.tipo,
+        subTipo:   c.subTipo || '',
+        nombre:    c.nombre,
+        fechaVenc: c.fechaVenc ? c.fechaVenc.toISOString().split('T')[0] : '',
+        estado:    'no_enviado'
+      };
+    }
+  }
+
+  guardarHistorial();
+
+  const primerNombre = grupoItems[0].nombre.split(' ')[0];
+  if (estado === 'enviado')     mostrarToast(`✅ ${primerNombre} — todos marcados como enviados`);
+  if (estado === 'no_enviado')  mostrarToast(`⏭️ ${primerNombre} — todos omitidos`);
+  if (estado === 'pendiente')   mostrarToast(`↩ ${primerNombre} — todos devueltos a pendiente`);
+
+  actualizarStats();
+  renderizar();
+  actualizarResumen();
+}
+
+// ─────────────────────────────────────────────
+//  ACCIONES
+// ─────────────────────────────────────────────
+function marcar(uid, estado) {
+  const c = clientes.find(x => x.uid === uid);
+  if (!c) return;
+
+  c.estado = estado;
+
+  if (estado === 'enviado') {
+    historial[historialKey(c)] = {
+      fecha:     HOY.toISOString().split('T')[0],
+      tipo:      c.tipo,
+      subTipo:   c.subTipo || '',
+      nombre:    c.nombre,
+      fechaVenc: c.fechaVenc ? c.fechaVenc.toISOString().split('T')[0] : '',
+      estado:    'enviado'
+    };
+    guardarHistorial();
+    mostrarToast(`✅ ${c.nombre.split(' ')[0]} marcado como enviado`);
+  } else if (estado === 'no_enviado') {
+    historial[historialKey(c)] = {
+      fecha:     HOY.toISOString().split('T')[0],
+      tipo:      c.tipo,
+      subTipo:   c.subTipo || '',
+      nombre:    c.nombre,
+      fechaVenc: c.fechaVenc ? c.fechaVenc.toISOString().split('T')[0] : '',
+      estado:    'no_enviado'
+    };
+    guardarHistorial();
+    mostrarToast(`⏭️ ${c.nombre.split(' ')[0]} omitido`);
+  } else {
+    delete historial[historialKey(c)];
+    guardarHistorial();
+    mostrarToast(`↩ ${c.nombre.split(' ')[0]} devuelto a pendiente`);
+  }
+
+  actualizarStats();
+  renderizar();
+  // BUG corregido: actualizarResumen() faltaba en la v3
+  actualizarResumen();
+}
+
+function copiarMensaje(uid) {
+  const c = clientes.find(x => x.uid === uid);
+  if (!c) return;
+  navigator.clipboard.writeText(c.mensaje).then(() => {
+    mostrarToast(`📋 Mensaje de ${c.nombre.split(' ')[0]} copiado`);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = c.mensaje;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    mostrarToast('📋 Mensaje copiado');
+  });
+}
+
+function formatTel(tel) {
+  const t = String(tel || '').replace(/\D/g, '');
+  if (t.length === 10) return `${t.slice(0,3)}-${t.slice(3,6)}-${t.slice(6)}`;
+  return tel || '—';
+}
+
+// ─────────────────────────────────────────────
+//  FILTROS
+// ─────────────────────────────────────────────
+function filtrar(tipo, el) {
+  filtroActivo = tipo;
+  subFiltroRec = 'todos'; // resetear sub-filtro al cambiar filtro principal
+  subFiltroMora = 'todos'; // resetear sub-filtro mora
+  document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active', 'mora', 'rec', 'proceso', 'susp', 'otros', 'aldia'));
+  if (el) {
+    el.classList.add('active');
+    if (tipo === 'mora')          el.classList.add('mora');
+    if (tipo === 'recordatorio')  el.classList.add('rec');
+    if (tipo === 'proceso')       el.classList.add('proceso');
+    if (tipo === 'suspendido')    el.classList.add('susp');
+    if (tipo === 'otros')         el.classList.add('otros');
+    if (tipo === 'aldia')         el.classList.add('aldia');
+  }
+  // Mostrar/ocultar sub-filtros de mora
+  const subBarMora = document.getElementById('subfiltrosMora');
+  if (tipo === 'mora') {
+    subBarMora.classList.add('visible');
+    document.querySelectorAll('.subfiltro-mora-btn').forEach(b => b.classList.remove('active'));
+    subBarMora.querySelector('.subfiltro-mora-btn').classList.add('active');
+    actualizarConteoSubfiltrosMora();
+  } else {
+    subBarMora.classList.remove('visible');
+  }
+  // Mostrar/ocultar sub-filtros de recordatorio
+  const subBar = document.getElementById('subfiltrosRec');
+  if (tipo === 'recordatorio') {
+    subBar.classList.add('visible');
+    // Resetear botones sub-filtro
+    document.querySelectorAll('.subfiltro-btn').forEach(b => b.classList.remove('active'));
+    subBar.querySelector('.subfiltro-btn').classList.add('active');
+    actualizarConteoSubfiltros();
+  } else {
+    subBar.classList.remove('visible');
+  }
+  renderizar();
+}
+
+function subFiltrarRec(dias, el) {
+  subFiltroRec = dias;
+  document.querySelectorAll('.subfiltro-btn').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderizar();
+}
+
+function diasParaVencimiento(c) {
+  if (!c.fechaVenc) return null;
+  const diff = Math.round((c.fechaVenc - HOY) / 86400000);
+  return diff;
+}
+
+function diasDeMora(c) {
+  // Calcula días de mora desde la primera fecha pendiente
+  if (!c.fechasPendientes || c.fechasPendientes.length === 0) return null;
+  const primera = c.fechasPendientes[0]; // ya están ordenadas asc
+  const diff = Math.round((HOY - primera) / 86400000);
+  return diff >= 0 ? diff : null;
+}
+
+function subFiltrarMora(dias, el) {
+  subFiltroMora = dias;
+  document.querySelectorAll('.subfiltro-mora-btn').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderizar();
+}
+
+function actualizarConteoSubfiltrosMora() {
+  const moras = clientes.filter(c => c.tipo === 'mora' && c.estado === 'pendiente');
+  const conteo = { todos: moras.length };
+  for (let i = 1; i <= 10; i++) conteo[i] = 0;
+  conteo[15] = 0;
+  conteo[20] = 0;
+  conteo[31] = 0;
+  conteo['1-31'] = 0;
+  conteo['1m'] = 0;
+  conteo['2m'] = 0;
+  conteo['3m'] = 0;
+  conteo['4m'] = 0;
+  conteo['5m'] = 0;
+  conteo['6-12m'] = 0;
+  conteo['1-12m'] = 0;
+  conteo['12m+'] = 0;
+
+  for (const c of moras) {
+    const d = diasDeMora(c);
+    // Días exactos 1-10
+    if (d !== null && d >= 1 && d <= 10) conteo[d]++;
+    // Rangos de días
+    if (d !== null && d >= 11 && d <= 15) conteo[15]++;
+    if (d !== null && d >= 16 && d <= 20) conteo[20]++;
+    if (d !== null && d >= 21 && d <= 31) conteo[31]++;
+    if (d !== null && d >= 1 && d <= 31) conteo['1-31']++;
+    // Meses (usando campo meses del crédito)
+    if (c.meses === 1) conteo['1m']++;
+    if (c.meses === 2) conteo['2m']++;
+    if (c.meses === 3) conteo['3m']++;
+    if (c.meses === 4) conteo['4m']++;
+    if (c.meses === 5) conteo['5m']++;
+    if (c.meses >= 6 && c.meses <= 12) conteo['6-12m']++;
+    if (c.meses >= 1 && c.meses <= 12) conteo['1-12m']++;
+    if (c.meses >= 1) conteo['12m+']++;
+  }
+
+  const el = id => document.getElementById(id);
+  if (el('subMoraTodos')) el('subMoraTodos').textContent = `(${conteo.todos})`;
+  for (let i = 1; i <= 10; i++) {
+    if (el(`subMora${i}`)) el(`subMora${i}`).textContent = `(${conteo[i]})`;
+  }
+  if (el('subMora15')) el('subMora15').textContent = `(${conteo[15]})`;
+  if (el('subMora20')) el('subMora20').textContent = `(${conteo[20]})`;
+  if (el('subMora31')) el('subMora31').textContent = `(${conteo[31]})`;
+  if (el('subMora1_31')) el('subMora1_31').textContent = `(${conteo['1-31']})`;
+  if (el('subMora1m')) el('subMora1m').textContent = `(${conteo['1m']})`;
+  if (el('subMora2m')) el('subMora2m').textContent = `(${conteo['2m']})`;
+  if (el('subMora3m')) el('subMora3m').textContent = `(${conteo['3m']})`;
+  if (el('subMora4m')) el('subMora4m').textContent = `(${conteo['4m']})`;
+  if (el('subMora5m')) el('subMora5m').textContent = `(${conteo['5m']})`;
+  if (el('subMora6_12m')) el('subMora6_12m').textContent = `(${conteo['6-12m']})`;
+  if (el('subMora1_12m')) el('subMora1_12m').textContent = `(${conteo['1-12m']})`;
+  if (el('subMora12plus')) el('subMora12plus').textContent = `(${conteo['12m+']})`;
+}
+
+function actualizarConteoSubfiltros() {
+  const recs = clientes.filter(c => c.tipo === 'recordatorio' && c.estado === 'pendiente');
+  // Contar por crédito único (no por registro T-3/HOY)
+  const numsPorDias = {};
+  for (const c of recs) {
+    const d = diasParaVencimiento(c);
+    const key = c.numero;
+    if (!numsPorDias[key]) numsPorDias[key] = d;
+  }
+  const conteo = { todos: 0 };
+  for (let i = 0; i <= 10; i++) conteo[i] = 0;
+  conteo['11-15'] = 0;
+  conteo['16-20'] = 0;
+  conteo['21-31'] = 0;
+  conteo['1-31'] = 0;
+
+  for (const [num, d] of Object.entries(numsPorDias)) {
+    conteo.todos++;
+    if (d !== null) {
+      // Exactos 0-10
+      if (d >= 0 && d <= 10) conteo[d]++;
+      // Rangos
+      if (d >= 11 && d <= 15) conteo['11-15']++;
+      if (d >= 16 && d <= 20) conteo['16-20']++;
+      if (d >= 21 && d <= 31) conteo['21-31']++;
+      if (d >= 0 && d <= 31) conteo['1-31']++;
+    }
+  }
+  const el = id => document.getElementById(id);
+  if (el('subRecTodos')) el('subRecTodos').textContent = `(${conteo.todos})`;
+  for (let i = 0; i <= 10; i++) {
+    if (el(`subRec${i}`)) el(`subRec${i}`).textContent = `(${conteo[i]})`;
+  }
+  if (el('subRec11_15')) el('subRec11_15').textContent = `(${conteo['11-15']})`;
+  if (el('subRec16_20')) el('subRec16_20').textContent = `(${conteo['16-20']})`;
+  if (el('subRec21_31')) el('subRec21_31').textContent = `(${conteo['21-31']})`;
+  if (el('subRec1_31')) el('subRec1_31').textContent = `(${conteo['1-31']})`;
+}
+
+// ─────────────────────────────────────────────
+//  STATS
+// ─────────────────────────────────────────────
+function actualizarStats() {
+  const mora = clientes.filter(c => c.tipo === 'mora').length;
+  const rec  = new Set(clientes.filter(c => c.tipo === 'recordatorio').map(c => c.numero)).size;
+  const env  = clientes.filter(c => c.estado === 'enviado').length;
+  const proc = clientes.filter(c => c.tipo === 'proceso').length;
+  const susp = clientes.filter(c => c.tipo === 'suspendido').length;
+  const otros = clientes.filter(c => c.tipo === 'otros').length;
+  const aldia = clientes.filter(c => c.tipo === 'aldia').length;
+  // Total semana = solo pendientes (sin duplicados en recordatorio)
+  const moraPend = clientes.filter(c => c.tipo === 'mora' && c.estado === 'pendiente').length;
+  const recPend  = new Set(clientes.filter(c => c.tipo === 'recordatorio' && c.estado === 'pendiente').map(c => c.numero)).size;
+  const procPend = clientes.filter(c => c.tipo === 'proceso' && c.estado === 'pendiente').length;
+  const suspPend = clientes.filter(c => c.tipo === 'suspendido' && c.estado === 'pendiente').length;
+  const otrosPend = clientes.filter(c => c.tipo === 'otros' && c.estado === 'pendiente').length;
+  const aldiaPend = clientes.filter(c => c.tipo === 'aldia' && c.estado === 'pendiente').length;
+  const totalSemana = moraPend + recPend + procPend + suspPend + otrosPend + aldiaPend;
+  document.getElementById('statTotalExcel').textContent  = totalExcel;
+  document.getElementById('statTotal').textContent       = totalSemana;
+  document.getElementById('statMora').textContent        = mora;
+  document.getElementById('statRec').textContent         = rec;
+  document.getElementById('statEnviado').textContent     = env;
+  document.getElementById('statProceso').textContent     = proc;
+  document.getElementById('statSuspendido').textContent  = susp;
+  document.getElementById('statOtros').textContent       = otros;
+  document.getElementById('statAldia').textContent       = aldia;
+  actualizarConteoSubfiltros();
+  actualizarConteoSubfiltrosMora();
+}
+
+// ─────────────────────────────────────────────
+//  RESUMEN (BUG corregido: ahora se llama siempre desde marcar())
+// ─────────────────────────────────────────────
+function actualizarResumen() {
+  // Contar del array actual
+  const enviados   = clientes.filter(c => c.estado === 'enviado').length;
+  const noEnviados = clientes.filter(c => c.estado === 'no_enviado').length;
+  const pendientes = clientes.filter(c => c.estado === 'pendiente').length;
+
+  // Contar del historial semanal (incluye días anteriores que ya no están en clientes)
+  const uidsActuales = new Set(clientes.map(c => historialKey(c)));
+  let enviadosPrev = 0, omitidosPrev = 0;
+  for (const [key, val] of Object.entries(historial)) {
+    if (!uidsActuales.has(key)) {
+      if (val.estado === 'enviado') enviadosPrev++;
+      else if (val.estado === 'no_enviado') omitidosPrev++;
+    }
+  }
+
+  const totalEnviados   = enviados + enviadosPrev;
+  const totalNoEnviados = noEnviados + omitidosPrev;
+
+  const resumen = document.getElementById('resumen');
+
+  if (totalEnviados + totalNoEnviados === 0) {
+    resumen.classList.remove('visible');
+    return;
+  }
+  resumen.classList.add('visible');
+
+  let prevHtml = '';
+  if (enviadosPrev + omitidosPrev > 0) {
+    prevHtml = `
+    <div class="resumen-fila" style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;font-size:11px;color:var(--text2)">
+      <span>📅 Días anteriores</span><span>✅ ${enviadosPrev} · ❌ ${omitidosPrev}</span>
+    </div>`;
+  }
+
+  document.getElementById('resumenContenido').innerHTML = `
+    <div class="resumen-fila"><span>✅ Enviados</span>   <span>${enviados}</span></div>
+    <div class="resumen-fila"><span>❌ No enviados</span> <span>${noEnviados}</span></div>
+    <div class="resumen-fila"><span>⏳ Pendientes</span> <span>${pendientes}</span></div>
+    <div class="resumen-fila" style="font-weight:600"><span>Total semana</span> <span>✅ ${totalEnviados} · ❌ ${totalNoEnviados}</span></div>
+    ${prevHtml}
+  `;
+}
+
+// ─────────────────────────────────────────────
+//  TOAST
+// ─────────────────────────────────────────────
+let toastTimer;
+function mostrarToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+// ─────────────────────────────────────────────
+//  EXPORTAR EXCEL
+// ─────────────────────────────────────────────
+function exportarExcel(modo) {
+  if (clientes.length === 0) { mostrarToast('❌ No hay datos para exportar'); return; }
+
+  const wb = XLSX.utils.book_new();
+
+  if (modo === 'filtro') {
+    // Exportar solo lo que se ve con el filtro actual
+    let filtrados = clientes.filter(c => {
+      if (filtroActivo === 'mora')          return c.tipo === 'mora';
+      if (filtroActivo === 'recordatorio')  return c.tipo === 'recordatorio';
+      if (filtroActivo === 'pendientes')    return c.estado === 'pendiente';
+      if (filtroActivo === 'enviados')      return c.estado === 'enviado';
+      if (filtroActivo === 'omitidos')      return c.estado === 'no_enviado';
+      if (filtroActivo === 'proceso')       return c.tipo === 'proceso';
+      if (filtroActivo === 'suspendido')    return c.tipo === 'suspendido';
+      if (filtroActivo === 'otros')         return c.tipo === 'otros';
+      if (filtroActivo === 'aldia')         return c.tipo === 'aldia';
+      return true;
+    });
+    const busqueda = (document.getElementById('searchBox')?.value || '').toLowerCase().trim();
+    if (busqueda) filtrados = filtrados.filter(c => c.nombre.toLowerCase().includes(busqueda) || String(c.numero).includes(busqueda));
+
+    // Aplicar sub-filtro de mora
+    if (filtroActivo === 'mora' && subFiltroMora !== 'todos') {
+      const f = subFiltroMora;
+      if (f === '1-31') {
+        filtrados = filtrados.filter(c => { const d = diasDeMora(c); return d !== null && d >= 1 && d <= 31; });
+      } else if (f === '1m') {
+        filtrados = filtrados.filter(c => c.meses === 1);
+      } else if (f === '2m') {
+        filtrados = filtrados.filter(c => c.meses === 2);
+      } else if (f === '3m') {
+        filtrados = filtrados.filter(c => c.meses === 3);
+      } else if (f === '4m') {
+        filtrados = filtrados.filter(c => c.meses === 4);
+      } else if (f === '5m') {
+        filtrados = filtrados.filter(c => c.meses === 5);
+      } else if (f === '6-12m') {
+        filtrados = filtrados.filter(c => c.meses >= 6 && c.meses <= 12);
+      } else if (f === '1-12m') {
+        filtrados = filtrados.filter(c => c.meses >= 1 && c.meses <= 12);
+      } else if (f === '12m+') {
+        filtrados = filtrados.filter(c => c.meses >= 1);
+      } else {
+        const diasFiltro = Number(f);
+        if (diasFiltro === 15) {
+          filtrados = filtrados.filter(c => { const d = diasDeMora(c); return d !== null && d >= 11 && d <= 15; });
+        } else if (diasFiltro === 20) {
+          filtrados = filtrados.filter(c => { const d = diasDeMora(c); return d !== null && d >= 16 && d <= 20; });
+        } else if (diasFiltro === 31) {
+          filtrados = filtrados.filter(c => { const d = diasDeMora(c); return d !== null && d >= 21 && d <= 31; });
+        } else {
+          filtrados = filtrados.filter(c => diasDeMora(c) === diasFiltro);
+        }
+      }
+    }
+
+    // Aplicar sub-filtro de recordatorio
+    if (filtroActivo === 'recordatorio' && subFiltroRec !== 'todos') {
+      const f = subFiltroRec;
+      const numsConDias = new Set();
+      for (const c of filtrados) {
+        const d = diasParaVencimiento(c);
+        if (d === null) continue;
+        let match = false;
+        if (f === '11-15')     match = d >= 11 && d <= 15;
+        else if (f === '16-20') match = d >= 16 && d <= 20;
+        else if (f === '21-31') match = d >= 21 && d <= 31;
+        else if (f === '1-31')  match = d >= 0 && d <= 31;
+        else                    match = d === Number(f);
+        if (match) numsConDias.add(c.numero);
+      }
+      filtrados = filtrados.filter(c => numsConDias.has(c.numero));
+    }
+
+    let nombreHoja = filtroActivo === 'todos' ? 'Todos' : filtroActivo.charAt(0).toUpperCase() + filtroActivo.slice(1);
+    if (filtroActivo === 'mora' && subFiltroMora !== 'todos') {
+      const labels = {
+        '1-31': 'Mora - 1-31 dias',
+        '1m': 'Mora - 1 mes', '2m': 'Mora - 2 meses', '3m': 'Mora - 3 meses',
+        '4m': 'Mora - 4 meses', '5m': 'Mora - 5 meses', '6-12m': 'Mora - 6-12 meses',
+        '1-12m': 'Mora - 1-12 meses', '12m+': 'Mora - todos los meses'
+      };
+      nombreHoja = labels[subFiltroMora] || `Mora - ${subFiltroMora} dias`;
+    }
+    if (filtroActivo === 'recordatorio' && subFiltroRec !== 'todos') {
+      const recLabels = {
+        '11-15': 'Rec - 11-15 dias', '16-20': 'Rec - 16-20 dias',
+        '21-31': 'Rec - 21-31 dias', '1-31': 'Rec - 1-31 dias'
+      };
+      nombreHoja = recLabels[subFiltroRec] || (subFiltroRec === 0 ? 'Rec - Hoy' : `Rec - ${subFiltroRec} dias`);
+    }
+    agregarHoja(wb, nombreHoja, filtrados);
+    mostrarToast(`📥 Exportando ${filtrados.length} registros (${nombreHoja})`);
+
+  } else {
+    // Exportar todo con una pestaña por estado/tipo
+    const grupos = {
+      'Mora':          clientes.filter(c => c.tipo === 'mora'),
+      'Recordatorio':  clientes.filter(c => c.tipo === 'recordatorio'),
+      'Otros':         clientes.filter(c => c.tipo === 'otros'),
+      'Al dia':        clientes.filter(c => c.tipo === 'aldia'),
+      'Proceso':       clientes.filter(c => c.tipo === 'proceso'),
+      'Suspendido':    clientes.filter(c => c.tipo === 'suspendido'),
+      'Enviados':      clientes.filter(c => c.estado === 'enviado'),
+      'Omitidos':      clientes.filter(c => c.estado === 'no_enviado'),
+      'Pendientes':    clientes.filter(c => c.estado === 'pendiente'),
+    };
+
+    // Solo crear hojas que tengan datos
+    for (const [nombre, items] of Object.entries(grupos)) {
+      if (items.length > 0) agregarHoja(wb, nombre, items);
+    }
+
+    // Hoja resumen con todo
+    agregarHoja(wb, 'Todos', clientes);
+    mostrarToast(`📥 Exportando ${clientes.length} registros (todas las pestañas)`);
+  }
+
+  const fecha = HOY.toISOString().split('T')[0];
+  XLSX.writeFile(wb, `cobranza_${fecha}.xlsx`);
+}
+
+function agregarHoja(wb, nombre, items) {
+  // Agrupar por cliente
+  const porCliente = new Map();
+  for (const c of items) {
+    const key = c.nombre.toUpperCase().trim();
+    if (!porCliente.has(key)) porCliente.set(key, { nombre: c.nombre, telefono: c.telefono, items: [] });
+    porCliente.get(key).items.push(c);
+  }
+
+  const datos = [...porCliente.values()].map(g => {
+    const creditos = g.items;
+    const numeros  = [...new Set(creditos.map(c => c.numero))].sort((a, b) => a - b);
+    const capitalFmt = n => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
+
+    // Si solo tiene 1 crédito, usar el mensaje original
+    if (numeros.length === 1 && creditos.length === 1) {
+      const c = creditos[0];
+      return {
+        'Nombre':      c.nombre,
+        'Teléfono':    c.telefono,
+        'N° Créditos': String(c.numero),
+        'Tipo':        c.tipo.charAt(0).toUpperCase() + c.tipo.slice(1),
+        'Estado':      c.estado.charAt(0).toUpperCase() + c.estado.slice(1).replace('_', ' '),
+        'Mensaje':     c.mensaje,
+      };
+    }
+
+    // Varios créditos → mensaje unificado
+    const primerNombre = g.nombre.split(' ')[0];
+    const tipos = [...new Set(creditos.map(c => c.tipo))];
+    const tipoLabel = tipos.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(' / ');
+    const estados = [...new Set(creditos.map(c => c.estado))];
+    const estadoLabel = estados.map(e => e.charAt(0).toUpperCase() + e.slice(1).replace('_', ' ')).join(' / ');
+
+    let mensaje = `Hola ${primerNombre}, espero que se encuentre bien.\n`;
+
+    // Recorrer cada número de crédito
+    for (const num of numeros) {
+      const creditosDeNum = creditos.filter(c => c.numero === num);
+      const c = creditosDeNum[0];
+
+      if (c.tipo === 'mora') {
+        const mesesTexto = c.meses === 1 ? '1 mes' : `${c.meses} meses`;
+        mensaje += `\nRespecto del crédito No. ${num}, con un capital de ${capitalFmt(c.capital)}, tiene ${mesesTexto} de intereses y/o cuotas pendientes.`;
+        if (c.fechasPendientes && c.fechasPendientes.length > 0) {
+          mensaje += '\n' + c.fechasPendientes.map((f, i) => {
+            const fmt = new Date(f).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            return `  ${i + 1}. ${fmt} = Pendiente pago`;
+          }).join('\n');
+        }
+      } else if (c.tipo === 'recordatorio') {
+        const fechaTexto = c.fechaVenc
+          ? new Date(c.fechaVenc).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' })
+          : 'próximamente';
+        mensaje += `\nRespecto del crédito No. ${num}, con un capital de ${capitalFmt(c.capital)}, su próximo pago de intereses y/o cuota vence el ${fechaTexto}.`;
+      } else if (c.tipo === 'proceso' || c.tipo === 'suspendido') {
+        mensaje += `\nRespecto del crédito No. ${num} — ${c.subTipo}. Capital: ${capitalFmt(c.capital)}.`;
+      } else if (c.tipo === 'otros') {
+        mensaje += `\nRespecto del crédito No. ${num} — Estado: ${c.subTipo}. Capital: ${capitalFmt(c.capital)}.`;
+      } else if (c.tipo === 'aldia') {
+        mensaje += `\nRespecto del crédito No. ${num} — Al día. Capital: ${capitalFmt(c.capital)}.`;
+      }
+    }
+
+    mensaje += '\n\nQuedo atento a tu mensaje.';
+
+    return {
+      'Nombre':      g.nombre,
+      'Teléfono':    g.telefono,
+      'N° Créditos': numeros.join(', '),
+      'Tipo':        tipoLabel,
+      'Estado':      estadoLabel,
+      'Mensaje':     mensaje,
+    };
+  });
+
+  const ws = XLSX.utils.json_to_sheet(datos);
+
+  // Ajustar anchos de columna
+  ws['!cols'] = [
+    { wch: 30 },  // Nombre
+    { wch: 14 },  // Teléfono
+    { wch: 18 },  // N° Créditos
+    { wch: 16 },  // Tipo
+    { wch: 14 },  // Estado
+    { wch: 90 },  // Mensaje
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, nombre.substring(0, 31));
+}
+
+</script>
+</body>
+</html>
